@@ -233,13 +233,9 @@ def annotate_source(source, label):
                     align=pymupdf.TEXT_ALIGN_LEFT,
                 )
 
-                # With current PyMuPDF versions, apply FreeText borders
-                # after creation instead of passing border_color above.
+                # FreeText does not support Annot.set_colors().
+                # Keep its text/fill colors from creation and set width only.
                 annotation.set_border(width=1)
-                annotation.set_colors(
-                    stroke=(0.55, 0.12, 0.25),
-                    fill=(1, 0.96, 0.97),
-                )
                 annotation.set_info(subject="Law Review editor note")
                 annotation.update(opacity=0.95)
 
@@ -263,10 +259,6 @@ def annotate_source(source, label):
         align=pymupdf.TEXT_ALIGN_CENTER,
     )
     label_annotation.set_border(width=1)
-    label_annotation.set_colors(
-        stroke=(0.05, 0.12, 0.35),
-        fill=(1, 1, 1),
-    )
     label_annotation.set_info(subject="Calculated footnote label")
     label_annotation.update(opacity=1)
 
