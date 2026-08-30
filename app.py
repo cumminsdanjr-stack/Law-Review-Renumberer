@@ -1,8 +1,13 @@
 import io
 import re
 import zipfile
-import fitz  # PyMuPDF
 import streamlit as st
+
+# Safe PyMuPDF import for Streamlit Cloud
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 
 st.set_page_config(
     page_title="Law Review Footnote & Annotation Portal", layout="wide"
