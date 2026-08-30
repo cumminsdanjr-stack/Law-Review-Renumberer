@@ -1,20 +1,8 @@
 import io
 import re
 import zipfile
+import fitz  # PyMuPDF standard import
 import streamlit as st
-
-# Resilient PyMuPDF import
-try:
-    import pymupdf as fitz
-except ImportError:
-    try:
-        import fitz
-    except ImportError:
-        st.error(
-            "**Missing Dependency:** PyMuPDF is not installed in this environment. "
-            "Please ensure `PyMuPDF` is listed in your `requirements.txt` and reboot the app."
-        )
-        st.stop()
 
 st.set_page_config(
     page_title="Law Review Footnote & Annotation Portal", layout="wide"
