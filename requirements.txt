@@ -1,2 +1,5 @@
-streamlit
-pymupdf
+streamlit==1.62.0
+pymupdf==1.26.4
+pillow==11.3.0
+pandas==2.3.2
+streamlit-drawable-canvas-fix==0.9.8
