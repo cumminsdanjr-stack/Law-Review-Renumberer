@@ -190,40 +190,88 @@ def pdf_rect(page, ann):
 
 def annotate_source(source, label):
     doc = pymupdf.open(stream=source["pdf"], filetype="pdf")
+
+    # Add saved annotations to each applicable page.
     for page_no, anns in source["annotations"].items():
         page = doc[int(page_no)]
+
         for ann in anns:
             rect = pdf_rect(page, ann)
+
+            # Transparent rectangle with a red border.
             if ann["kind"] == "box":
                 a = page.add_rect_annot(rect)
                 a.set_colors(stroke=(1, 0, 0))
                 a.set_border(width=2)
                 a.set_info(subject="Law Review proposition box")
                 a.update(opacity=1)
+
+            # Translucent yellow region highlight.
             elif ann["kind"] == "highlight":
                 a = page.add_rect_annot(rect)
-                a.set_colors(stroke=(0.88, 0.69, 0), fill=(1, 0.92, 0))
+                a.set_colors(
+                    stroke=(0.88, 0.69, 0),
+                    fill=(1, 0.92, 0),
+                )
                 a.set_border(width=0.5)
                 a.set_info(subject="Law Review region highlight")
                 a.update(opacity=0.35)
+
+            # Editable free-form note.
             elif ann["kind"] == "note":
-                a = page.add_freetext_annot(rect, ann.get("text") or "Note", fontsize=9,
-                                            text_color=(0.55, 0.12, 0.25),
-                                            fill_color=(1, 0.96, 0.97), border_color=(0.55, 0.12, 0.25))
+                a = page.add_freetext_annot(
+                    rect,
+                    ann.get("text") or "Note",
+                    fontsize=9,
+                    text_color=(0.55, 0.12, 0.25),
+                    fill_color=(1, 0.96, 0.97),
+                    align=pymupdf.TEXT_ALIGN_LEFT,
+                )
+
+                # Set the border after creating the annotation.
+                a.set_border(width=1)
+                a.set_colors(
+                    stroke=(0.55, 0.12, 0.25),
+                    fill=(1, 0.96, 0.97),
+                )
                 a.set_info(subject="Law Review editor note")
                 a.update(opacity=0.95)
+
+    # Add the calculated footnote label to page 1 only.
     page = doc[0]
     x, y, w, h = source["label_position"]
-    rect = pymupdf.Rect(x * page.rect.width, y * page.rect.height,
-                        (x + w) * page.rect.width, (y + h) * page.rect.height)
+
+    rect = pymupdf.Rect(
+        x * page.rect.width,
+        y * page.rect.height,
+        (x + w) * page.rect.width,
+        (y + h) * page.rect.height,
+    )
+
     text = f"FN {label}\n{source['id']}"
-    a = page.add_freetext_annot(rect, text, fontsize=9, text_color=(0.05, 0.12, 0.35),
-                                fill_color=(1, 1, 1), border_color=(0.05, 0.12, 0.35), align=1)
+
+    a = page.add_freetext_annot(
+        rect,
+        text,
+        fontsize=9,
+        text_color=(0.05, 0.12, 0.35),
+        fill_color=(1, 1, 1),
+        align=pymupdf.TEXT_ALIGN_CENTER,
+    )
+
+    # Set the label border after creating the annotation.
+    a.set_border(width=1)
+    a.set_colors(
+        stroke=(0.05, 0.12, 0.35),
+        fill=(1, 1, 1),
+    )
     a.set_info(subject="Calculated footnote label")
     a.update(opacity=1)
-    output = doc.tobytes(garbage=4, deflate=True)
-    doc.close()
-    return output
+
+    output = doc.tobytes(
+        garbage=4,
+        deflate=True,
+  
 
 
 def build_exports():
