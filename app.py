@@ -3,11 +3,18 @@ import re
 import zipfile
 import streamlit as st
 
-# Safe PyMuPDF import for Streamlit Cloud
+# Resilient PyMuPDF import
 try:
     import pymupdf as fitz
 except ImportError:
-    import fitz
+    try:
+        import fitz
+    except ImportError:
+        st.error(
+            "**Missing Dependency:** PyMuPDF is not installed in this environment. "
+            "Please ensure `PyMuPDF` is listed in your `requirements.txt` and reboot the app."
+        )
+        st.stop()
 
 st.set_page_config(
     page_title="Law Review Footnote & Annotation Portal", layout="wide"
