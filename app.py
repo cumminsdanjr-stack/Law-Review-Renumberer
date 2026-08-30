@@ -1,3 +1,15 @@
+import os
+import sys
+import subprocess
+
+# 1. FORCE PIP INSTALL AT RUNTIME (Bypasses Streamlit's broken requirements reader)
+try:
+    import pypdf
+    import reportlab
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pypdf", "reportlab"])
+
+# 2. NOW IMPORT EVERYTHING
 import io
 import re
 import zipfile
@@ -6,6 +18,11 @@ from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
 
+st.set_page_config(
+    page_title="Law Review Footnote & Annotation Portal", layout="wide"
+)
+
+# ... (KEEP THE REST OF YOUR APP CODE EXACTLY THE SAME BELOW THIS LINE) ...
 st.set_page_config(
     page_title="Law Review Footnote & Annotation Portal", layout="wide"
 )
