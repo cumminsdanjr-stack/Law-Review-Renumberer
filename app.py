@@ -123,8 +123,14 @@ def render_page(pdf_bytes, page_index, max_width=900):
         page = doc[page_index]
         zoom = min(max_width / page.rect.width, 2.0)
         pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
-        image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
-        return image, page.rect.width, page.rect.height
+        # Force pixel data into an independent PIL image before the PDF/pixmap
+        # objects leave scope. This avoids blank canvas backgrounds in Streamlit.
+        mode = "RGBA" if pix.alpha else "RGB"
+        image = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        image.load()
+        return image.copy(), page.rect.width, page.rect.height
 
 
 def ann_to_fabric(ann, width, height):
@@ -278,7 +284,12 @@ def build_exports():
         separate.append((f"FN_{labels[source['id']].replace('.', '_')}_{source['id']}.pdf", data))
         part = pymupdf.open(stream=data, filetype="pdf")
         start = current_page
-        merged.insert_pdf(part)
+
+        # Bake annotations into the consolidated copy so every PDF viewer shows
+        # them and insert_pdf cannot drop their appearance streams. Separate
+        # source PDFs in the ZIP remain editable.
+        part.bake(annots=True, widgets=False)
+        merged.insert_pdf(part, annots=True)
         current_page += len(part)
         manifest_rows.append({
             "source_id": source["id"], "display_label": labels[source["id"]],
@@ -303,7 +314,7 @@ def build_exports():
 # ---------------- UI ----------------
 init_state()
 st.title("📚 Law Review PDF Workspace")
-st.caption("Prototype: organize sources by footnote, draw editable annotations, and export a consolidated PDF.")
+st.caption("Prototype v2: visible PDF canvas, persistent page annotations, and reliable consolidated export.")
 
 with st.sidebar:
     st.header("Project")
@@ -372,19 +383,29 @@ with editor:
         mode, stroke, fill = "rect", "#8b1e3f", "rgba(255,245,248,0.45)"
     else:
         mode, stroke, fill = "transform", "#ff0000", "rgba(255,0,0,0)"
+    # Keep the image alive in session state for the custom component.
+    image_key = f"page_image_{source['id']}_{page_no}"
+    st.session_state[image_key] = image
     canvas = st_canvas(
-        background_image=image, initial_drawing=initial, drawing_mode=mode,
+        background_image=st.session_state[image_key], initial_drawing=initial, drawing_mode=mode,
         stroke_width=3 if tool == "Red box" else 1, stroke_color=stroke, fill_color=fill,
         update_streamlit=True, height=canvas_h, width=canvas_w, display_toolbar=True,
         key=f"canvas_{source['id']}_{page_no}_{tool}",
     )
+    st.caption(f"Saved annotations on this page: {len(saved)}")
     existing_notes = [a.get("text", "") for a in saved if a["kind"] == "note"]
     c1, c2 = st.columns(2)
     if c1.button("Save this page's annotations", type="primary", use_container_width=True):
         checkpoint()
-        objects = (canvas.json_data or {}).get("objects", [])
-        source["annotations"][page_key] = canvas_to_annotations(objects, canvas_w, canvas_h, existing_notes, note_text)
-        st.success("Annotations saved.")
+        if canvas.json_data is None:
+            st.error("The drawing canvas did not return annotation data. Refresh the page and try again.")
+        else:
+            objects = canvas.json_data.get("objects", [])
+            source["annotations"][page_key] = canvas_to_annotations(
+                objects, canvas_w, canvas_h, existing_notes, note_text
+            )
+            st.success(f"Saved {len(source['annotations'][page_key])} annotation(s) on page {page_no + 1}.")
+            st.rerun()
     if c2.button("Clear this page", use_container_width=True):
         checkpoint(); source["annotations"][page_key] = []; st.rerun()
     st.caption("Tip: choose Select / resize to move or resize saved objects. On scanned PDFs, yellow highlighting is region-based rather than text-aware.")
