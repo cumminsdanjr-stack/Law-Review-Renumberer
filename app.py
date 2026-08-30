@@ -189,37 +189,42 @@ def pdf_rect(page, ann):
 
 
 def annotate_source(source, label):
+    """Create an annotated copy of one source PDF."""
     doc = pymupdf.open(stream=source["pdf"], filetype="pdf")
 
-    # Add saved annotations to each applicable page.
+    # Add saved annotations to their applicable pages.
     for page_no, anns in source["annotations"].items():
-        page = doc[int(page_no)]
+        page_index = int(page_no)
+        if page_index < 0 or page_index >= len(doc):
+            continue
+
+        page = doc[page_index]
 
         for ann in anns:
             rect = pdf_rect(page, ann)
 
             # Transparent rectangle with a red border.
             if ann["kind"] == "box":
-                a = page.add_rect_annot(rect)
-                a.set_colors(stroke=(1, 0, 0))
-                a.set_border(width=2)
-                a.set_info(subject="Law Review proposition box")
-                a.update(opacity=1)
+                annotation = page.add_rect_annot(rect)
+                annotation.set_colors(stroke=(1, 0, 0))
+                annotation.set_border(width=2)
+                annotation.set_info(subject="Law Review proposition box")
+                annotation.update(opacity=1)
 
-            # Translucent yellow region highlight.
+            # Translucent yellow region highlight. This also works on scans.
             elif ann["kind"] == "highlight":
-                a = page.add_rect_annot(rect)
-                a.set_colors(
+                annotation = page.add_rect_annot(rect)
+                annotation.set_colors(
                     stroke=(0.88, 0.69, 0),
                     fill=(1, 0.92, 0),
                 )
-                a.set_border(width=0.5)
-                a.set_info(subject="Law Review region highlight")
-                a.update(opacity=0.35)
+                annotation.set_border(width=0.5)
+                annotation.set_info(subject="Law Review region highlight")
+                annotation.update(opacity=0.35)
 
-            # Editable free-form note.
+            # Editable free-form text note.
             elif ann["kind"] == "note":
-                a = page.add_freetext_annot(
+                annotation = page.add_freetext_annot(
                     rect,
                     ann.get("text") or "Note",
                     fontsize=9,
@@ -228,50 +233,46 @@ def annotate_source(source, label):
                     align=pymupdf.TEXT_ALIGN_LEFT,
                 )
 
-                # Set the border after creating the annotation.
-                a.set_border(width=1)
-                a.set_colors(
+                # With current PyMuPDF versions, apply FreeText borders
+                # after creation instead of passing border_color above.
+                annotation.set_border(width=1)
+                annotation.set_colors(
                     stroke=(0.55, 0.12, 0.25),
                     fill=(1, 0.96, 0.97),
                 )
-                a.set_info(subject="Law Review editor note")
-                a.update(opacity=0.95)
+                annotation.set_info(subject="Law Review editor note")
+                annotation.update(opacity=0.95)
 
     # Add the calculated footnote label to page 1 only.
     page = doc[0]
-    x, y, w, h = source["label_position"]
-
-    rect = pymupdf.Rect(
+    x, y, width, height = source["label_position"]
+    label_rect = pymupdf.Rect(
         x * page.rect.width,
         y * page.rect.height,
-        (x + w) * page.rect.width,
-        (y + h) * page.rect.height,
+        (x + width) * page.rect.width,
+        (y + height) * page.rect.height,
     )
 
-    text = f"FN {label}\n{source['id']}"
-
-    a = page.add_freetext_annot(
-        rect,
-        text,
+    label_text = f"FN {label}\n{source['id']}"
+    label_annotation = page.add_freetext_annot(
+        label_rect,
+        label_text,
         fontsize=9,
         text_color=(0.05, 0.12, 0.35),
         fill_color=(1, 1, 1),
         align=pymupdf.TEXT_ALIGN_CENTER,
     )
-
-    # Set the label border after creating the annotation.
-    a.set_border(width=1)
-    a.set_colors(
+    label_annotation.set_border(width=1)
+    label_annotation.set_colors(
         stroke=(0.05, 0.12, 0.35),
         fill=(1, 1, 1),
     )
-    a.set_info(subject="Calculated footnote label")
-    a.update(opacity=1)
+    label_annotation.set_info(subject="Calculated footnote label")
+    label_annotation.update(opacity=1)
 
-    output = doc.tobytes(
-        garbage=4,
-        deflate=True,
-  
+    output = doc.tobytes(garbage=4, deflate=True)
+    doc.close()
+    return output
 
 
 def build_exports():
